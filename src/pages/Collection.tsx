@@ -12,11 +12,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useMarketplace } from "@/hooks/useMarketplace";
+import { usePushWalletContext } from "@pushchain/ui-kit";
 
 const Collection = () => {
   const { id } = useParams();
   const collection = collections.find((c) => c.id === id);
   const collectionNFTs = nfts.filter((nft) => nft.collectionId === id);
+  const { listings, isLoading, buyItem } = useMarketplace();
+  const { connectionStatus } = usePushWalletContext();
 
   if (!collection) {
     return <div className="container py-12">Collection not found</div>;
@@ -124,13 +128,25 @@ const Collection = () => {
           </div>
 
           <div className="mb-4 text-sm text-muted-foreground">
-            {collectionNFTs.length} items
+            {listings.length > 0 ? `${listings.length} active listings` : `${collectionNFTs.length} items`}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {collectionNFTs.map((nft) => (
-              <NFTCard key={nft.id} nft={nft} />
-            ))}
+            {listings.length > 0 ? (
+              listings.map((listing) => (
+                <NFTCard 
+                  key={listing.id} 
+                  listing={listing}
+                  nft={collectionNFTs[0]}
+                  onBuy={buyItem}
+                  isLoading={isLoading}
+                />
+              ))
+            ) : (
+              collectionNFTs.map((nft) => (
+                <NFTCard key={nft.id} nft={nft} />
+              ))
+            )}
           </div>
         </div>
       </div>
