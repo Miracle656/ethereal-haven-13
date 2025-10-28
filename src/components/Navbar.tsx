@@ -20,6 +20,9 @@ const Navbar = () => {
             <Link to="/profile" className="text-sm font-medium hover:text-primary transition-colors">
               Profile
             </Link>
+            <Link to="/mint" className="text-sm font-medium hover:text-primary transition-colors">
+              Mint
+            </Link>
           </div>
         </div>
 
