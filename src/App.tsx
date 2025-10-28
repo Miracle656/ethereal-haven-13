@@ -7,6 +7,7 @@ import { PushUniversalWalletProvider, PushUI } from "@pushchain/ui-kit";
 import Index from "./pages/Index";
 import Collection from "./pages/Collection";
 import Profile from "./pages/Profile";
+import MintNft from "./pages/MintNft";
 import NotFound from "./pages/NotFound";
 import Navbar from "./components/Navbar";
 
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/collection/:id" element={<Collection />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/mint" element={<MintNft />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

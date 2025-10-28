@@ -1,18 +1,87 @@
-import { nfts } from "@/data/mockData";
+import { useState } from "react";
+import { usePushChainClient, usePushWalletContext } from "@pushchain/ui-kit";
+import { useNFTCollection } from "@/hooks/useNFTCollection";
+import { useMarketplace } from "@/hooks/useMarketplace";
 import NFTCard from "@/components/NFTCard";
+import ListNFTDialog from "@/components/ListNFTDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Settings } from "lucide-react";
-import { usePushWalletContext } from "@pushchain/ui-kit";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Search, Settings, Plus, Wallet, TrendingUp } from "lucide-react";
+import { DIVINITY_NFT_ADDRESS } from "@/config/nft";
 
 const Profile = () => {
-  const { connectionStatus } = usePushWalletContext();
-  
-  const userNFTs = nfts.slice(-3); // Last 3 NFTs as user's collection
-  
-  // Mock address for display
-  const address = "0x6639edb90ba4407a36e0d8ce2d9168a0d4844776";
+  const { pushChainClient, isInitialized } = usePushChainClient();
+  const { universalAccount } = usePushWalletContext();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("nfts");
+
+  const account = universalAccount;
+
+  // Load user's NFTs from DIVINITY collection
+  const {
+    nfts: allNFTs,
+    isLoading: nftsLoading,
+    refresh: refreshNFTs,
+    getNFTsByOwner,
+  } = useNFTCollection(DIVINITY_NFT_ADDRESS);
+
+  // Load marketplace data
+  const { listings, cancelListing, isLoading: marketplaceLoading } = useMarketplace();
+
+  // Get address
+  const address = pushChainClient?.universal?.account || account?.address || null;
+
+  // Get user's NFTs
+  const userNFTs = address ? getNFTsByOwner(address) : [];
+
+  // Get user's active listings
+  const userListings = address
+    ? listings.filter(
+        (listing) =>
+          listing.seller.toLowerCase() === address.toLowerCase() &&
+          listing.active
+      )
+    : [];
+
+  // Filter NFTs by search
+  const filteredNFTs = userNFTs.filter((nft) =>
+    nft.metadata.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Calculate portfolio value (mock for now)
+  const portfolioValue = userNFTs.length * 0.01;
+  const totalListings = userListings.length;
+
+  if (!isInitialized || !address) {
+    return (
+      <div className="min-h-screen">
+        {/* Profile Header - Not Connected */}
+        <div className="relative h-64 overflow-hidden bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(120,119,198,0.3),rgba(255,255,255,0))]" />
+        </div>
+
+        <div className="container px-4">
+          <div className="relative -mt-16 mb-8">
+            <div className="h-32 w-32 rounded-full border-4 border-background bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+              <span className="text-4xl">👤</span>
+            </div>
+          </div>
+
+          <div className="max-w-md mx-auto text-center py-12">
+            <Wallet className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-2xl font-bold mb-2">Connect Your Wallet</h2>
+            <p className="text-muted-foreground mb-6">
+              Connect your wallet to view your NFT collection and manage your listings
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -24,70 +93,78 @@ const Profile = () => {
       <div className="container px-4">
         <div className="relative -mt-16 mb-8">
           <div className="h-32 w-32 rounded-full border-4 border-background bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <span className="text-4xl">👤</span>
+            <span className="text-4xl">
+              {address.slice(2, 4).toUpperCase()}
+            </span>
           </div>
         </div>
 
         <div className="mb-8">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h1 className="text-4xl font-bold mb-2">
-                {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Connect Wallet"}
-              </h1>
-              <p className="text-muted-foreground">
-                Joined Mar 2025
-              </p>
+              <div className="flex items-center gap-2 mb-2">
+                <h1 className="text-4xl font-bold">
+                  {address.slice(0, 6)}...{address.slice(-4)}
+                </h1>
+                <Badge variant="secondary">Connected</Badge>
+              </div>
+              <p className="text-muted-foreground">Push Chain Wallet</p>
             </div>
-            
-            <Button variant="outline" size="icon">
-              <Settings className="h-4 w-4" />
-            </Button>
+
+            <div className="flex gap-2">
+              <Button variant="outline" size="icon">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
+          {/* Stats */}
           <div className="flex flex-wrap gap-8 mb-6">
             <div>
               <p className="text-sm text-muted-foreground">Portfolio Value</p>
-              <p className="text-2xl font-bold">$4.92</p>
+              <p className="text-2xl font-bold">${portfolioValue.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">NFTs</p>
               <p className="text-2xl font-bold">{userNFTs.length}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Tokens</p>
-              <p className="text-2xl font-bold">100%</p>
+              <p className="text-sm text-muted-foreground">Listed</p>
+              <p className="text-2xl font-bold">{totalListings}</p>
             </div>
           </div>
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="nfts" className="mb-8">
-          <TabsList>
-            <TabsTrigger value="nfts">NFTs</TabsTrigger>
-            <TabsTrigger value="tokens">Tokens</TabsTrigger>
-            <TabsTrigger value="listings">Listings</TabsTrigger>
-            <TabsTrigger value="offers">Offers</TabsTrigger>
-            <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
-            <TabsTrigger value="created">Created</TabsTrigger>
-            <TabsTrigger value="watchlist">Watchlist</TabsTrigger>
-            <TabsTrigger value="favorites">Favorites</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <TabsList>
+              <TabsTrigger value="nfts">
+                NFTs ({userNFTs.length})
+              </TabsTrigger>
+              <TabsTrigger value="listings">
+                Listings ({userListings.length})
+              </TabsTrigger>
+              <TabsTrigger value="tokens">Tokens</TabsTrigger>
+              <TabsTrigger value="offers">Offers</TabsTrigger>
+              <TabsTrigger value="activity">Activity</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="nfts" className="mt-6">
-            {/* Filters */}
-            <div className="flex flex-col lg:flex-row gap-4 mb-6">
-              <div className="flex-1 relative">
+            <div className="flex gap-2">
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search for items" 
-                  className="pl-9"
+                <Input
+                  placeholder="Search NFTs..."
+                  className="pl-9 w-64"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              
-              <Button variant="outline">Recently received</Button>
             </div>
+          </div>
 
+          {/* NFTs Tab */}
+          <TabsContent value="nfts">
             {/* Status Filters */}
             <div className="mb-6">
               <Tabs defaultValue="all">
@@ -95,20 +172,179 @@ const Profile = () => {
                   <TabsTrigger value="all">All</TabsTrigger>
                   <TabsTrigger value="listed">Listed</TabsTrigger>
                   <TabsTrigger value="not-listed">Not Listed</TabsTrigger>
-                  <TabsTrigger value="hidden">Hidden</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
 
-            <div className="mb-4 text-sm text-muted-foreground">
-              {userNFTs.length} items
-            </div>
+            {nftsLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="space-y-3">
+                    <Skeleton className="aspect-square w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-8 w-full" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredNFTs.length === 0 ? (
+              <div className="text-center py-12">
+                <Wallet className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">No NFTs Found</h3>
+                <p className="text-muted-foreground mb-6">
+                  {searchQuery
+                    ? "No NFTs match your search"
+                    : "You don't own any NFTs from this collection yet"}
+                </p>
+                {!searchQuery && (
+                  <Button onClick={() => window.location.href = `/collection/${DIVINITY_NFT_ADDRESS}`}>
+                    Explore DIVINITY Collection
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="mb-4 text-sm text-muted-foreground">
+                  {filteredNFTs.length} items
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {filteredNFTs.map((nft) => {
+                    const existingListing = userListings.find(
+                      (l) => l.tokenId === nft.tokenId
+                    );
 
-            {/* NFT Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {userNFTs.map((nft) => (
-                <NFTCard key={nft.id} nft={nft} />
-              ))}
+                    return (
+                      <Card key={nft.tokenId} className="group overflow-hidden">
+                        <div className="relative aspect-square overflow-hidden bg-secondary">
+                          <img
+                            src={nft.metadata.image}
+                            alt={nft.metadata.name}
+                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          />
+                          {existingListing && (
+                            <Badge className="absolute top-2 right-2">Listed</Badge>
+                          )}
+                        </div>
+                        <div className="p-4">
+                          <h4 className="font-semibold mb-2 truncate">
+                            {nft.metadata.name}
+                          </h4>
+                          <p className="text-xs text-muted-foreground mb-3">
+                            Token ID: {nft.tokenId}
+                          </p>
+                          
+                          {existingListing ? (
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-muted-foreground">
+                                  Listed Price
+                                </span>
+                                <span className="font-semibold">
+                                  {existingListing.price} ETH
+                                </span>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => cancelListing(existingListing.id)}
+                                disabled={marketplaceLoading}
+                              >
+                                Cancel Listing
+                              </Button>
+                            </div>
+                          ) : (
+                            <ListNFTDialog
+                              tokenId={nft.tokenId}
+                              tokenContract={DIVINITY_NFT_ADDRESS}
+                              tokenName={nft.metadata.name}
+                              tokenImage={nft.metadata.image}
+                              onSuccess={refreshNFTs}
+                            >
+                              <Button variant="default" size="sm" className="w-full">
+                                List for Sale
+                              </Button>
+                            </ListNFTDialog>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </TabsContent>
+
+          {/* Listings Tab */}
+          <TabsContent value="listings">
+            {userListings.length === 0 ? (
+              <div className="text-center py-12">
+                <Settings className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">No Active Listings</h3>
+                <p className="text-muted-foreground mb-6">
+                  You haven't listed any NFTs for sale yet
+                </p>
+                <Button onClick={() => setActiveTab("nfts")}>
+                  List an NFT
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {userListings.map((listing) => (
+                  <Card key={listing.id} className="p-6">
+                    <div className="flex items-center gap-6">
+                      <img
+                        src={listing.metadata?.image || ""}
+                        alt={listing.metadata?.name || `Token #${listing.tokenId}`}
+                        className="h-24 w-24 rounded-lg object-cover"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-lg mb-1">
+                          {listing.metadata?.name || `Token #${listing.tokenId}`}
+                        </h4>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Token ID: {listing.tokenId}
+                        </p>
+                        <div className="flex items-center gap-4">
+                          <Badge variant={listing.isAuction ? "default" : "secondary"}>
+                            {listing.isAuction ? "Auction" : "Fixed Price"}
+                          </Badge>
+                          <span className="font-semibold text-lg">
+                            {listing.price} ETH
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => cancelListing(listing.id)}
+                        disabled={marketplaceLoading}
+                      >
+                        Cancel Listing
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Tokens Tab */}
+          <TabsContent value="tokens">
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Token balances coming soon...</p>
+            </div>
+          </TabsContent>
+
+          {/* Offers Tab */}
+          <TabsContent value="offers">
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Offers feature coming soon...</p>
+            </div>
+          </TabsContent>
+
+          {/* Activity Tab */}
+          <TabsContent value="activity">
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Activity history coming soon...</p>
             </div>
           </TabsContent>
         </Tabs>

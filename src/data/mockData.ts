@@ -4,6 +4,7 @@ export interface NFT {
   image: string;
   price: string;
   collectionId: string;
+  description?: string;
 }
 
 export interface Collection {
@@ -130,4 +131,14 @@ export const nfts: NFT[] = [
   { id: "user1", name: "Cool Cat #1234", image: "https://images.unsplash.com/photo-1561948955-570b270e7c36?w=400&h=400&fit=crop", price: "2.5", collectionId: "hypurr" },
   { id: "user2", name: "Ape #5678", image: "https://images.unsplash.com/photo-1629946832022-c327f74956e0?w=400&h=400&fit=crop", price: "8.0", collectionId: "bayc" },
   { id: "user3", name: "Penguin #9012", image: "https://images.unsplash.com/photo-1551582045-6ec9c11d8697?w=400&h=400&fit=crop", price: "7.5", collectionId: "pudgypenguins" },
+
+  {
+    id: "0xdD6b8Fd53447bb43cB9F90B525bA307cdf8A0A8C", name: "DIVINITY #1", image: "https://blue-sophisticated-hornet-740.mypinata.cloud/ipfs/Qme6CTP3Jy6x5Ls1hZFfaMNXWTujLksXY7DuTLvmowGvyD/images/BUBBLE.png", price: "3.0", collectionId: "0xdD6b8Fd53447bb43cB9F90B525bA307cdf8A0A8C"
+  },
+  {
+    id: "0xdD6b8Fd53447bb43cB9F90B525bA307cdf8A0A8C", name: "DIVINITY #2", image: "https://blue-sophisticated-hornet-740.mypinata.cloud/ipfs/Qme6CTP3Jy6x5Ls1hZFfaMNXWTujLksXY7DuTLvmowGvyD/images/doofus.png", price: "3.0", collectionId: "0xdD6b8Fd53447bb43cB9F90B525bA307cdf8A0A8C"
+  },
+  {
+    id: "0xdD6b8Fd53447bb43cB9F90B525bA307cdf8A0A8C", name: "DIVINITY #3", image: "https://blue-sophisticated-hornet-740.mypinata.cloud/ipfs/Qme6CTP3Jy6x5Ls1hZFfaMNXWTujLksXY7DuTLvmowGvyD/images/hearty.png", price: "3.0", collectionId: "0xdD6b8Fd53447bb43cB9F90B525bA307cdf8A0A8C"
+  }
 ];

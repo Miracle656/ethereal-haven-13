@@ -14,20 +14,25 @@ interface NFTCardProps {
 const NFTCard = ({ nft, listing, onBuy, isLoading }: NFTCardProps) => {
   // Use either mock data or real listing data
   const displayData = listing
-    ? {
-        name: `Token #${listing.tokenId}`,
-        image: nft?.image || "https://images.unsplash.com/photo-1620321023374-d1a68fbc720d?w=400&h=400&fit=crop",
-        price: listing.price,
-        id: listing.id,
-      }
-    : nft
-    ? {
-        name: nft.name,
-        image: nft.image,
-        price: nft.price,
-        id: nft.id,
-      }
-    : null;
+  ? {
+      name: listing.metadata?.name || `Token #${listing.tokenId}`,
+      image:
+        listing.metadata?.image ||
+        nft?.image ||
+        "https://images.unsplash.com/photo-1620321023374-d1a68fbc720d?w=400&h=400&fit=crop",
+      price: listing.price,
+      id: listing.id,
+      description: listing.metadata?.description || "",
+    }
+  : nft
+  ? {
+      name: nft.name,
+      image: nft.image,
+      price: nft.price,
+      id: nft.id,
+      description: nft.description || "",
+    }
+  : null;
 
   if (!displayData) return null;
 

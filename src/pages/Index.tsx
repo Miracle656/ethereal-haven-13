@@ -1,10 +1,28 @@
 import { collections } from "@/data/mockData";
+import divinitypfp from "../assets/divinypfp.png";
+collections.push({
+  id: "0xdD6b8Fd53447bb43cB9F90B525bA307cdf8A0A8C",
+  name: "DIVINITY",
+  creator: "divinity.push",
+  banner: divinitypfp,
+  avatar: divinitypfp,
+  blockchain: "Push",
+  items: 10,
+  floorPrice: "—",
+  totalVolume: "—",
+  listed: "0",
+  verified: true,
+  description: "A unique DIVINE collection of digital arts.",
+});
+
 import CollectionCard from "@/components/CollectionCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
-  const featuredCollection = collections[1]; // Ringers
+  const featuredCollection = collections[6]; // Ringers
+
+  
 
   return (
     <div className="min-h-screen">

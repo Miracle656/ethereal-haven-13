@@ -15,6 +15,11 @@ export interface Listing {
   price: string;
   active: boolean;
   isAuction: boolean;
+  metadata?: {
+    name?: string;
+    image?: string;
+    description?: string;
+  };
 }
 
 export const useMarketplace = () => {
@@ -26,30 +31,108 @@ export const useMarketplace = () => {
 
   // Get read-only provider for fetching data
   const getProvider = useCallback(() => {
-    return new ethers.JsonRpcProvider("https://evm.rpc-testnet-donut-node1.push.org/");
+    return new ethers.JsonRpcProvider(
+      "https://evm.rpc-testnet-donut-node1.push.org/"
+    );
   }, []);
 
-  // Fetch all active listings
+  // Fetch all active listings with block range batching
   const fetchListings = useCallback(async () => {
     try {
       setIsLoading(true);
       const provider = getProvider();
-      const contract = new ethers.Contract(MARKETPLACE_ADDRESS, MARKETPLACE_ABI, provider);
+      const contract = new ethers.Contract(
+        MARKETPLACE_ADDRESS,
+        MARKETPLACE_ABI,
+        provider
+      );
 
-      // Fetch Listed events to get all listing IDs
-      const filter = contract.filters.Listed();
-      const events = await contract.queryFilter(filter, 0, "latest");
+      // Get current block number
+      const currentBlock = await provider.getBlockNumber();
+      
+      // Push Chain limits: max 10000 blocks per query
+      const BLOCK_BATCH_SIZE = 9999;
+      const startBlock = Math.max(0, currentBlock - 50000); // Look back ~50k blocks
+      
+      let allEvents: any[] = [];
+      
+      // Batch query in chunks
+      for (let fromBlock = startBlock; fromBlock <= currentBlock; fromBlock += BLOCK_BATCH_SIZE) {
+        const toBlock = Math.min(fromBlock + BLOCK_BATCH_SIZE - 1, currentBlock);
+        
+        try {
+          const filter = contract.filters.Listed();
+          const events = await contract.queryFilter(filter, fromBlock, toBlock);
+          allEvents = [...allEvents, ...events];
+        } catch (err) {
+          console.warn(`Error fetching events from block ${fromBlock} to ${toBlock}:`, err);
+          // Continue with other batches even if one fails
+        }
+      }
 
-      const listingPromises = events.map(async (event) => {
-        if (!('args' in event)) return null;
+      if (allEvents.length === 0) {
+        setListings([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const listingPromises = allEvents.map(async (event) => {
+        if (!("args" in event)) return null;
         const listingId = event.args?.[0];
         if (!listingId) return null;
 
         try {
           const listing = await contract.listings(listingId);
-          
+
           // Only return active listings
           if (listing.active) {
+            let metadata = { name: "", image: "", description: "" };
+
+            try {
+              // Fetch tokenURI from the NFT contract
+              const nftContract = new ethers.Contract(
+                listing.tokenContract,
+                [
+                  {
+                    inputs: [
+                      {
+                        internalType: "uint256",
+                        name: "tokenId",
+                        type: "uint256",
+                      },
+                    ],
+                    name: "tokenURI",
+                    outputs: [
+                      { internalType: "string", name: "", type: "string" },
+                    ],
+                    stateMutability: "view",
+                    type: "function",
+                  },
+                ],
+                provider
+              );
+
+              const tokenURI = await nftContract.tokenURI(listing.tokenId);
+              
+              // Convert IPFS URI to gateway URL
+              let metadataUrl = tokenURI;
+              if (tokenURI.startsWith("ipfs://")) {
+                metadataUrl = tokenURI.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+              }
+              
+              const response = await fetch(metadataUrl);
+              const meta = await response.json();
+              
+              // Convert image IPFS URI to gateway URL
+              if (meta.image && meta.image.startsWith("ipfs://")) {
+                meta.image = meta.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+              }
+              
+              metadata = meta;
+            } catch (err) {
+              console.warn(`No metadata for token ${listing.tokenId}`, err);
+            }
+
             return {
               id: listingId.toString(),
               seller: listing.seller,
@@ -61,6 +144,7 @@ export const useMarketplace = () => {
               price: ethers.formatEther(listing.price),
               active: listing.active,
               isAuction: listing.isAuction,
+              metadata,
             };
           }
           return null;
@@ -71,12 +155,15 @@ export const useMarketplace = () => {
       });
 
       const allListings = await Promise.all(listingPromises);
-      const activeListings = allListings.filter((listing): listing is Listing => listing !== null);
-      
+      const activeListings = allListings.filter(
+        (listing): listing is Listing => listing !== null
+      );
+
       setListings(activeListings);
       setIsLoading(false);
     } catch (error) {
       console.error("Error fetching listings:", error);
+      setListings([]); // Set empty array on error
       setIsLoading(false);
     }
   }, [getProvider]);
@@ -98,7 +185,11 @@ export const useMarketplace = () => {
 
         // Get listing details to calculate price
         const provider = getProvider();
-        const contract = new ethers.Contract(MARKETPLACE_ADDRESS, MARKETPLACE_ABI, provider);
+        const contract = new ethers.Contract(
+          MARKETPLACE_ADDRESS,
+          MARKETPLACE_ABI,
+          provider
+        );
         const listing = await contract.listings(listingId);
 
         const totalPrice = BigInt(listing.price) * BigInt(amountToBuy);
@@ -107,7 +198,10 @@ export const useMarketplace = () => {
         const isNative = listing.currency === ethers.ZeroAddress;
 
         const iface = new ethers.Interface(MARKETPLACE_ABI);
-        const data = iface.encodeFunctionData("buyItem", [listingId, amountToBuy]) as `0x${string}`;
+        const data = iface.encodeFunctionData("buyItem", [
+          listingId,
+          amountToBuy,
+        ]) as `0x${string}`;
 
         const tx = await pushChainClient.universal.sendTransaction({
           to: MARKETPLACE_ADDRESS,
@@ -228,7 +322,9 @@ export const useMarketplace = () => {
         setIsLoading(true);
 
         const iface = new ethers.Interface(MARKETPLACE_ABI);
-        const data = iface.encodeFunctionData("cancelListing", [listingId]) as `0x${string}`;
+        const data = iface.encodeFunctionData("cancelListing", [
+          listingId,
+        ]) as `0x${string}`;
 
         const tx = await pushChainClient.universal.sendTransaction({
           to: MARKETPLACE_ADDRESS,
