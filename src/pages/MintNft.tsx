@@ -2,18 +2,17 @@ import { useState, useEffect } from "react";
 import {
   usePushChainClient,
   usePushWalletContext,
-  usePushChain,
 } from "@pushchain/ui-kit";
 import { useNFTCollection } from "@/hooks/useNFTCollection";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Sparkles, 
-  Wallet, 
-  Check, 
-  Loader2, 
+import {
+  Sparkles,
+  Wallet,
+  Check,
+  Loader2,
   ExternalLink,
   AlertCircle,
   Zap
@@ -21,12 +20,10 @@ import {
 import { DIVINITY_NFT_ADDRESS, DIVINITY_NFT_ABI } from "@/config/nft";
 import { ethers } from "ethers";
 import { useToast } from "@/hooks/use-toast";
-import { PushChain } from '@pushchain/core';
 
 const MintNft = () => {
   const { pushChainClient, isInitialized } = usePushChainClient();
   const { universalAccount } = usePushWalletContext();
-  // const { PushChain } = usePushChain();
   const { stats, refresh } = useNFTCollection(DIVINITY_NFT_ADDRESS);
   const { toast } = useToast();
 
@@ -41,8 +38,8 @@ const MintNft = () => {
   const address = universalAccount?.address || null;
 
   // Calculate progress
-  const mintProgress = stats 
-    ? (stats.totalMinted / stats.maxSupply) * 100 
+  const mintProgress = stats
+    ? (stats.totalMinted / stats.maxSupply) * 100
     : 0;
 
   const handleMint = async () => {
@@ -84,23 +81,23 @@ const MintNft = () => {
         description: "Please confirm the transaction in your wallet...",
       });
 
-      // Encode the mint function call using ethers Interface
+      // Encode the mint function call
       const iface = new ethers.Interface(DIVINITY_NFT_ABI);
       const mintData = iface.encodeFunctionData("mint", []);
 
-      // Get mint price and convert to BigInt (wei)
-      const mintPriceEth = stats?.mintPrice || "0.01";
-      const mintPriceWei = PushChain.utils.helpers.parseUnits(mintPriceEth, 18);
+      // CRITICAL FIX: Parse mint price from stats.mintPrice string to Wei
+      // If stats.mintPrice is "0.01", convert to 10000000000000000 wei
+      const mintPriceInEther = stats?.mintPrice || "0.01";
+      const mintPriceWei = BigInt(ethers.parseEther(mintPriceInEther).toString());
 
-      console.log(stats?.mintPrice)
-
-      console.log("Minting with params:", {
+      console.log("🎨 Minting NFT with params:", {
         to: DIVINITY_NFT_ADDRESS,
-        value: mintPriceWei,
+        value: mintPriceWei.toString(),
         data: mintData,
+        mintPriceInEther,
       });
 
-      // Send transaction
+      // Send transaction - EXACTLY like PNS does
       const tx = await pushChainClient.universal.sendTransaction({
         to: DIVINITY_NFT_ADDRESS as `0x${string}`,
         data: mintData as `0x${string}`,
@@ -117,8 +114,9 @@ const MintNft = () => {
       // Wait for transaction receipt
       const receipt = await tx.wait();
 
-      // Parse the NFTMinted event from the receipt (reuse iface declared earlier)
-      
+      console.log("✅ Transaction confirmed:", receipt);
+
+      // Parse the NFTMinted event from the receipt
       for (const log of receipt.logs) {
         try {
           const parsed = iface.parseLog({
@@ -140,7 +138,7 @@ const MintNft = () => {
             });
 
             setMintStatus("success");
-            
+
             toast({
               title: "NFT Minted Successfully! 🎉",
               description: `Token ID: ${tokenId}`,
@@ -168,11 +166,11 @@ const MintNft = () => {
       }
 
     } catch (error: any) {
-      console.error("Minting failed:", error);
+      console.error("❌ Minting failed:", error);
       setMintStatus("error");
-      
+
       let errorMessage = "Transaction failed. Please try again.";
-      
+
       if (error?.message?.includes("insufficient")) {
         errorMessage = "Insufficient funds to mint NFT";
       } else if (error?.message?.includes("user rejected")) {
@@ -181,6 +179,8 @@ const MintNft = () => {
         errorMessage = "Minting is currently disabled";
       } else if (error?.message?.includes("Max supply reached")) {
         errorMessage = "Collection is sold out";
+      } else if (error?.message?.includes("Insufficient payment")) {
+        errorMessage = "Insufficient payment sent";
       }
 
       toast({
@@ -267,11 +267,11 @@ const MintNft = () => {
               <div className="mx-auto w-32 h-32 mb-6 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full flex items-center justify-center">
                 <Sparkles className="h-16 w-16 text-primary" />
               </div>
-              
+
               <h2 className="text-2xl font-bold mb-4">Ready to Mint?</h2>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto">
                 Each DIVINITY NFT is unique and stored on-chain with metadata on IPFS.
-                You'll be minting from {chainInfo?.chainNamespace || "Push Chain"}.
+                Mint from any supported chain!
               </p>
 
               {!address ? (

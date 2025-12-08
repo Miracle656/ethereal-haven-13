@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { MARKETPLACE_ADDRESS, MARKETPLACE_ABI } from "@/config/marketplace";
+import { PNS_REGISTRY_ADDRESS, PNS_REGISTRY_ABI } from "@/config/pns";
 import { usePushChainClient, usePushWalletContext } from "@pushchain/ui-kit";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,10 +16,11 @@ export interface Listing {
   price: string;
   active: boolean;
   isAuction: boolean;
-  metadata?: {
-    name?: string;
-    image?: string;
-    description?: string;
+  isPNSName: boolean;
+  metadata: {
+    name: string;
+    image: string;
+    description: string;
   };
 }
 
@@ -49,17 +51,17 @@ export const useMarketplace = () => {
 
       // Get current block number
       const currentBlock = await provider.getBlockNumber();
-      
+
       // Push Chain limits: max 10000 blocks per query
       const BLOCK_BATCH_SIZE = 9999;
       const startBlock = Math.max(0, currentBlock - 50000); // Look back ~50k blocks
-      
+
       let allEvents: any[] = [];
-      
+
       // Batch query in chunks
       for (let fromBlock = startBlock; fromBlock <= currentBlock; fromBlock += BLOCK_BATCH_SIZE) {
         const toBlock = Math.min(fromBlock + BLOCK_BATCH_SIZE - 1, currentBlock);
-        
+
         try {
           const filter = contract.filters.Listed();
           const events = await contract.queryFilter(filter, fromBlock, toBlock);
@@ -87,50 +89,72 @@ export const useMarketplace = () => {
           // Only return active listings
           if (listing.active) {
             let metadata = { name: "", image: "", description: "" };
+            let isPNSName = false;
 
-            try {
-              // Fetch tokenURI from the NFT contract
-              const nftContract = new ethers.Contract(
-                listing.tokenContract,
-                [
-                  {
-                    inputs: [
-                      {
-                        internalType: "uint256",
-                        name: "tokenId",
-                        type: "uint256",
-                      },
-                    ],
-                    name: "tokenURI",
-                    outputs: [
-                      { internalType: "string", name: "", type: "string" },
-                    ],
-                    stateMutability: "view",
-                    type: "function",
-                  },
-                ],
-                provider
-              );
+            // Check if this is a PNS registry listing
+            if (listing.tokenContract.toLowerCase() === PNS_REGISTRY_ADDRESS.toLowerCase()) {
+              isPNSName = true;
+              try {
+                const pnsContract = new ethers.Contract(
+                  PNS_REGISTRY_ADDRESS,
+                  PNS_REGISTRY_ABI,
+                  provider
+                );
+                const pnsName = await pnsContract.names(listing.tokenId);
+                metadata = {
+                  name: pnsName,
+                  image: "", // PNS names don't have images
+                  description: `Universal name: ${pnsName}.push`,
+                };
+              } catch (err) {
+                console.warn(`Error fetching PNS name for token ${listing.tokenId}`, err);
+              }
+            } else {
+              // Regular NFT - fetch metadata
+              try {
+                // Fetch tokenURI from the NFT contract
+                const nftContract = new ethers.Contract(
+                  listing.tokenContract,
+                  [
+                    {
+                      inputs: [
+                        {
+                          internalType: "uint256",
+                          name: "tokenId",
+                          type: "uint256",
+                        },
+                      ],
+                      name: "tokenURI",
+                      outputs: [
+                        { internalType: "string", name: "", type: "string" },
+                      ],
+                      stateMutability: "view",
+                      type: "function",
+                    },
+                  ],
+                  provider
+                );
 
-              const tokenURI = await nftContract.tokenURI(listing.tokenId);
-              
-              // Convert IPFS URI to gateway URL
-              let metadataUrl = tokenURI;
-              if (tokenURI.startsWith("ipfs://")) {
-                metadataUrl = tokenURI.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+                const tokenURI = await nftContract.tokenURI(listing.tokenId);
+
+                // Convert IPFS URI to gateway URL
+                let metadataUrl = tokenURI;
+                if (tokenURI.startsWith("ipfs://")) {
+                  metadataUrl = tokenURI.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+                }
+
+                const response = await fetch(metadataUrl);
+                const meta = await response.json();
+
+                // Convert image IPFS URI to gateway URL
+                if (meta.image && meta.image.startsWith("ipfs://")) {
+                  meta.image = meta.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+                }
+
+                metadata = meta;
+              } catch (err) {
+                console.warn(`No metadata for token ${listing.tokenId}`, err);
               }
-              
-              const response = await fetch(metadataUrl);
-              const meta = await response.json();
-              
-              // Convert image IPFS URI to gateway URL
-              if (meta.image && meta.image.startsWith("ipfs://")) {
-                meta.image = meta.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
-              }
-              
-              metadata = meta;
-            } catch (err) {
-              console.warn(`No metadata for token ${listing.tokenId}`, err);
             }
 
             return {
@@ -144,7 +168,12 @@ export const useMarketplace = () => {
               price: ethers.formatEther(listing.price),
               active: listing.active,
               isAuction: listing.isAuction,
-              metadata,
+              isPNSName,
+              metadata: {
+                name: metadata.name || "",
+                image: metadata.image || "",
+                description: metadata.description || "",
+              },
             };
           }
           return null;
@@ -241,7 +270,7 @@ export const useMarketplace = () => {
   const listItem = useCallback(
     async (
       tokenContract: string,
-      tokenId: number,
+      tokenId: number | bigint,
       amount: number,
       price: string,
       asAuction: boolean = false,
@@ -259,19 +288,27 @@ export const useMarketplace = () => {
       try {
         setIsLoading(true);
 
+
         const priceInWei = ethers.parseEther(price);
         const currency = ethers.ZeroAddress; // Native currency
+
+        console.log('📝 Marketplace listItem called with:');
+        console.log('  tokenId:', tokenId);
+        console.log('  typeof tokenId:', typeof tokenId);
+        console.log('  tokenId.toString():', tokenId.toString());
 
         const iface = new ethers.Interface(MARKETPLACE_ABI);
         const data = iface.encodeFunctionData("listItem", [
           tokenContract,
-          tokenId,
+          tokenId, // Keep as bigint, ethers will handle it
           amount,
           currency,
           priceInWei,
           asAuction,
           auctionEndTime,
         ]) as `0x${string}`;
+
+        console.log('  encoded data:', data);
 
         const tx = await pushChainClient.universal.sendTransaction({
           to: MARKETPLACE_ADDRESS,

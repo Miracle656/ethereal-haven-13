@@ -29,6 +29,7 @@ export interface CollectionStats {
   maxSupply: number;
   remaining: number;
   mintPrice: string;
+  rawMintPrice: bigint;  // ← ADD THIS!
   mintingEnabled: boolean;
   floorPrice: string;
   mintsFromEthereum: number;
@@ -69,14 +70,14 @@ export const useNFTCollection = (contractAddress: string = DIVINITY_NFT_ADDRESS)
       const url = getIPFSUrl(tokenURI);
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch metadata");
-      
+
       const metadata = await response.json();
-      
+
       // Convert image IPFS URI to gateway URL
       if (metadata.image) {
         metadata.image = getIPFSUrl(metadata.image);
       }
-      
+
       return metadata;
     } catch (error) {
       console.error(`Error fetching metadata from ${tokenURI}:`, error);
@@ -124,6 +125,7 @@ export const useNFTCollection = (contractAddress: string = DIVINITY_NFT_ADDRESS)
         maxSupply: Number(maxSupply),
         remaining: Number(maxSupply) - Number(totalMinted),
         mintPrice: ethers.formatEther(mintPrice),
+        rawMintPrice: mintPrice,  // ← ADD THIS! Raw BigInt value
         mintingEnabled,
         floorPrice: "—", // Will be calculated from marketplace listings
         mintsFromEthereum: Number(mintStats[2]),

@@ -43,7 +43,7 @@ const ListNFTDialog = ({
   const [auctionDuration, setAuctionDuration] = useState("24");
   const [isApproving, setIsApproving] = useState(false);
   const [isListing, setIsListing] = useState(false);
-  
+
   const { listItem } = useMarketplace();
   const { toast } = useToast();
   const { pushChainClient } = usePushChainClient();
@@ -97,7 +97,7 @@ const ListNFTDialog = ({
 
       // Step 2: List the NFT on marketplace
       setIsListing(true);
-      
+
       const auctionEndTime = isAuction
         ? Math.floor(Date.now() / 1000) + parseInt(auctionDuration) * 3600
         : 0;
@@ -127,7 +127,7 @@ const ListNFTDialog = ({
       console.error("Error listing NFT:", error);
       setIsApproving(false);
       setIsListing(false);
-      
+
       toast({
         title: "Error",
         description: error?.message || "Failed to list NFT",
@@ -140,6 +140,9 @@ const ListNFTDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>List NFT for Sale</DialogTitle>

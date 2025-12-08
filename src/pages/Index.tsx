@@ -16,31 +16,39 @@ collections.push({
 });
 
 import CollectionCard from "@/components/CollectionCard";
+import NFTCard from "@/components/NFTCard";
+import PNSNameCard from "@/components/PNSNameCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMarketplace } from "@/hooks/useMarketplace";
 
 const Index = () => {
   const featuredCollection = collections[6]; // Ringers
+  const { listings, buyItem, isLoading } = useMarketplace();
 
-  
+  // Filter PNS names and NFTs
+  const pnsListings = listings.filter(l => l.isPNSName);
+  const nftListings = listings.filter(l => !l.isPNSName);
+
+
 
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative h-[500px] overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent z-10" />
-        <img 
+        <img
           src={featuredCollection.banner}
           alt="Featured"
           className="absolute inset-0 h-full w-full object-cover"
         />
-        
+
         <div className="container relative z-20 h-full flex items-center px-4">
           <div className="max-w-2xl">
             <h1 className="text-5xl font-bold mb-4">{featuredCollection.name}</h1>
             <p className="text-lg text-muted-foreground mb-2">By {featuredCollection.creator}</p>
             <p className="text-lg mb-6">{featuredCollection.description}</p>
-            
+
             <div className="flex flex-wrap gap-6 mb-6">
               <div>
                 <p className="text-sm text-muted-foreground">Floor Price</p>
@@ -75,6 +83,8 @@ const Index = () => {
         <Tabs defaultValue="all" className="mb-8">
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="pns">PNS Names</TabsTrigger>
+            <TabsTrigger value="nfts">NFTs</TabsTrigger>
             <TabsTrigger value="art">Art</TabsTrigger>
             <TabsTrigger value="gaming">Gaming</TabsTrigger>
             <TabsTrigger value="pfps">PFPs</TabsTrigger>
@@ -85,6 +95,44 @@ const Index = () => {
               {collections.map((collection) => (
                 <CollectionCard key={collection.id} collection={collection} />
               ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="pns" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {pnsListings.length > 0 ? (
+                pnsListings.map((listing) => (
+                  <PNSNameCard
+                    key={listing.id}
+                    listing={listing}
+                    onBuy={buyItem}
+                    isLoading={isLoading}
+                  />
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-muted-foreground">No PNS names listed yet</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="nfts" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {nftListings.length > 0 ? (
+                nftListings.map((listing) => (
+                  <NFTCard
+                    key={listing.id}
+                    listing={listing}
+                    onBuy={buyItem}
+                    isLoading={isLoading}
+                  />
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-muted-foreground">No NFTs listed yet</p>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
